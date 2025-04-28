@@ -1,0 +1,10 @@
+riderModule.iml
+/_ReSharper.Caches/
+/.idea/
+/.vs/
+packages
+Releases
+**/bin
+**/obj
+**/GameDirectory.targets
+CustomIonCubes.sln.DotSettings.user
