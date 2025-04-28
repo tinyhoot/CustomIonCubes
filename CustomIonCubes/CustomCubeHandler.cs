@@ -8,6 +8,7 @@ using Nautilus.Crafting;
 using Nautilus.Handlers;
 using Nautilus.Utility;
 using UnityEngine;
+using UnityEngine.U2D;
 
 namespace CustomIonCubes
 {
@@ -80,7 +81,7 @@ namespace CustomIonCubes
             return prefabInfo.TechType;
         }
 
-        private static Atlas.Sprite GetColouredSprite(Color newColor)
+        private static Sprite GetColouredSprite(Color newColor)
         {
             Atlas atlas = Atlas.GetAtlas("Items");
             foreach (var serial in atlas.serialData)
@@ -91,21 +92,29 @@ namespace CustomIonCubes
             CustomIonCubesInit._log.LogDebug($"Found serialdata '{y.name}' with {y.sprite}");
             
             var original = SpriteManager.Get(TechType.PrecursorIonCrystal);
-            foreach (var x in Atlas.nameToAtlas.Keys)
+            foreach (var uv in original.uv0)
             {
-                CustomIonCubesInit._log.LogDebug(x);
+                CustomIonCubesInit._log.LogDebug($"UV: {uv}");
             }
+            foreach (var vtx in original.vertices)
+            {
+                CustomIonCubesInit._log.LogDebug($"Vertex: {vtx}");
+            }
+            // foreach (var x in Atlas.nameToAtlas.Keys)
+            // {
+            //     CustomIonCubesInit._log.LogDebug(x);
+            // }
             
             var x1 = RecolorSprite(SpriteManager.Get(TechType.PrecursorIonCrystal), newColor);
-            x1.border = original.border;
-            x1.size = original.size;
-            x1.inner = original.inner;
-            x1.outer = original.outer;
-            x1.triangles = original.triangles;
-            x1.uv0 = original.uv0;
-            x1.vertices = original.vertices;
-            x1.pixelsPerUnit = original.pixelsPerUnit;
-            x1.padding = original.padding;
+            // x1.border = original.border;
+            // x1.size = original.size;
+            // x1.inner = original.inner;
+            // x1.outer = original.outer;
+            // x1.triangles = original.triangles;
+            // x1.uv0 = original.uv0;
+            // x1.vertices = original.vertices;
+            // x1.pixelsPerUnit = original.pixelsPerUnit;
+            // x1.uv0 = new[] { new Vector2(0f, 0f), new Vector2(1f, 1f) };
             return x1;
         }
 
@@ -153,7 +162,7 @@ namespace CustomIonCubes
         /// <summary>
         /// Change the hue of all colors of a sprite. Saturation and vibrancy are retained.
         /// </summary>
-        public static Atlas.Sprite RecolorSprite(Atlas.Sprite sprite, Color newColor)
+        public static Sprite RecolorSprite(Atlas.Sprite sprite, Color newColor)
         {
             Texture2D texture = CloneTexture(sprite);
             for (int x = 0; x < texture.width; x++)
@@ -166,7 +175,7 @@ namespace CustomIonCubes
                 }
             }
             texture.Apply();
-            return new Atlas.Sprite(texture);
+            return Sprite.Create(texture, new Rect(0f, 0f, 128f, 128f), new Vector2(0.5f, 0.5f));
         }
         
         /// <summary>
@@ -176,24 +185,27 @@ namespace CustomIonCubes
         public static Texture2D CloneTexture(Atlas.Sprite sprite)
         {
             Texture2D sourceTexture = sprite.texture;
+            
             // Create a temporary RenderTexture of the same size as the texture
             RenderTexture tmp = RenderTexture.GetTemporary(
-                // (int)sprite.size.x,
-                // (int)sprite.size.x,
-                sprite.texture.width,
-                sprite.texture.height,
+                (int)sprite.size.x,
+                (int)sprite.size.y,
+                // sprite.texture.width,
+                // sprite.texture.height,
                 0,
                 RenderTextureFormat.Default,
                 RenderTextureReadWrite.Linear);
 
+            
             // Blit the pixels on texture to the RenderTexture
-            Graphics.Blit(sourceTexture, tmp);
+            var scale = sprite.uv0[1] - sprite.uv0[2];
+            Graphics.Blit(sourceTexture, tmp, scale, sprite.uv0[2]);
             // Backup the currently set RenderTexture
             RenderTexture previous = RenderTexture.active;
             // Set the current RenderTexture to the temporary one we created
             RenderTexture.active = tmp;
             // Create a new readable Texture2D to copy the pixels to it
-            Texture2D clonedTexture = new Texture2D(sourceTexture.width, sourceTexture.height);
+            Texture2D clonedTexture = new Texture2D((int)sprite.size.x, (int)sprite.size.y);
             // Copy the pixels from the RenderTexture to the new Texture
             clonedTexture.ReadPixels(new Rect(0, 0, tmp.width, tmp.height), 0, 0);
             clonedTexture.Apply();
