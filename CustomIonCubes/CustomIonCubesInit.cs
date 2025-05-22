@@ -5,6 +5,7 @@ using System.Reflection;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using Nautilus.Utility.ModMessages;
 using UnityEngine;
 
 namespace CustomIonCubes
@@ -21,6 +22,8 @@ namespace CustomIonCubes
         internal static Material _hueshift;
         internal static Material _hueDisco;
 
+        private ModInbox _inbox;
+
         private void Awake()
         {
             _log = Logger;
@@ -34,6 +37,11 @@ namespace CustomIonCubes
 
             Harmony harmony = new Harmony(GUID);
             harmony.PatchAll();
+            
+            // Set up the mod messaging system.
+            _inbox = new ModInbox(GUID);
+            _inbox.AddMessageReader(new CustomCubeMessageReader(CustomCubeHandler.ModMessageSubject));
+            _inbox.ReadAnyHeldMessages();
         }
 
         private IEnumerator Start()

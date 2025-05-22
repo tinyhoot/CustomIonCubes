@@ -47,6 +47,7 @@
         <Compile Include="CustomCubeHandler.cs" />
         <Compile Include="CustomIonCubesInit.cs" />
         <Compile Include="IconPatcher.cs" />
+        <Compile Include="CustomCubeMessageReader.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>
