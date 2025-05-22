@@ -41,5 +41,11 @@ namespace CustomIonCubes
         /// the cube is resting on a surface.
         /// </summary>
         public Color Illumination;
+
+        /// <summary>
+        /// The color used to change the inventory icon. This is done by replacing the hue in HSV colour space, so
+        /// the icon will look more or less the same with the colour "swapped out".
+        /// </summary>
+        public Color IconColor;
     }
 }

@@ -1,9 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using UnityEngine;
 
 namespace CustomIonCubes
 {
@@ -16,11 +18,22 @@ namespace CustomIonCubes
         public const string VERSION = "0.1";
 
         internal static ManualLogSource _log;
+        internal static Material _hueshift;
+        internal static Material _hueDisco;
 
         private void Awake()
         {
             _log = Logger;
             _log.LogInfo($"{NAME} v{VERSION} ready.");
+            
+            AssetBundle bundle = AssetBundle.LoadFromFile(Path.Combine(new FileInfo(Assembly.GetExecutingAssembly().Location).Directory!.FullName, "hueshiftshader"));
+            var shaderMaterial = bundle.LoadAsset<Material>("stencilhueshift");
+            _hueshift = shaderMaterial;
+            _log.LogDebug($"Shader: {shaderMaterial}");
+            _hueDisco = bundle.LoadAsset<Material>("stencildisco");
+
+            Harmony harmony = new Harmony(GUID);
+            harmony.PatchAll();
         }
 
         private IEnumerator Start()

@@ -6,13 +6,12 @@ using Nautilus.Assets.Gadgets;
 using Nautilus.Assets.PrefabTemplates;
 using Nautilus.Crafting;
 using Nautilus.Handlers;
-using Nautilus.Utility;
+using Nautilus.Utility.ModMessages;
 using UnityEngine;
-using UnityEngine.U2D;
 
 namespace CustomIonCubes
 {
-    public class CustomCubeHandler
+    public static class CustomCubeHandler
     {
         /// <summary>
         /// This prefix is automatically added before every id registered with this mod to avoid classId collisions with
@@ -20,11 +19,19 @@ namespace CustomIonCubes
         /// </summary>
         public const string IdPrefix = "cic_";
 
+        /// <summary>
+        /// The subject used by this mod when sending a global mod message to notify other mods of a newly registered
+        /// custom ion cube.
+        /// </summary>
+        public const string ModMessageSubject = "CustomIonCube_Registered";
+
         private static readonly Dictionary<string, CubeColor> CubeColours = new Dictionary<string, CubeColor>();
         private static readonly int MainColor = Shader.PropertyToID("_Color");
         private static readonly int DetailsColor = Shader.PropertyToID("_DetailsColor");
         private static readonly int SquaresColor = Shader.PropertyToID("_SquaresColor");
         private static readonly int GlowColor = Shader.PropertyToID("_GlowColor");
+
+        internal static readonly Dictionary<TechType, Material> Materials = new Dictionary<TechType, Material>();
         
         /// <summary>
         /// Register a custom <see cref="CubeColor"/> to create a new ion cube item with.<br />
@@ -33,7 +40,8 @@ namespace CustomIonCubes
         /// </summary>
         /// <returns>The TechType of the newly created item.</returns>
         /// <exception cref="ArgumentException">Raised if the color's id already exists.</exception>
-        public static TechType RegisterCube(string id, Color main, Color details, Color squares, Color glow, Color light)
+        public static TechType RegisterCube(string id, Color main, Color details, Color squares, Color glow, Color light,
+            Color icon)
         {
             var color = new CubeColor
             {
@@ -42,7 +50,8 @@ namespace CustomIonCubes
                 Details = details,
                 AnimatedSquares = squares,
                 Glow = glow,
-                Illumination = light
+                Illumination = light,
+                IconColor = icon
             };
             return RegisterCube(color);
         }
@@ -61,7 +70,7 @@ namespace CustomIonCubes
             
             PrefabInfo prefabInfo = PrefabInfo
                 .WithTechType(classId, false, Assembly.GetExecutingAssembly())
-                .WithIcon(GetColouredSprite(color.MainColor))
+                .WithIcon(SpriteManager.Get(TechType.PrecursorIonCrystal))
                 .WithSizeInInventory(new Vector2int(1, 1));
             CustomPrefab prefab = new CustomPrefab(prefabInfo);
             prefab
@@ -77,45 +86,15 @@ namespace CustomIonCubes
             prefab.SetPrefabPostProcessor(PostProcessor);
             prefab.Register();
             
+            // Also set up the recipe to turn this cube back into a regular ion cube.
+            CraftDataHandler.SetRecipeData(TechType.PrecursorIonCrystal, new RecipeData(new CraftData.Ingredient(prefabInfo.TechType)));
+            CraftTreeHandler.AddCraftingNode(CraftTree.Type.Fabricator, TechType.PrecursorIonCrystal, CraftTreeHandler.Paths.FabricatorsBasicMaterials);
             CopyLanguageLines(prefabInfo.TechType);
+            PrepareMaterial(prefabInfo.TechType, color.IconColor);
+            
+            // Notify any other mods out there with that a new custom cube exists.
+            ModMessageSystem.SendGlobal(ModMessageSubject, prefabInfo.TechType);
             return prefabInfo.TechType;
-        }
-
-        private static Sprite GetColouredSprite(Color newColor)
-        {
-            Atlas atlas = Atlas.GetAtlas("Items");
-            foreach (var serial in atlas.serialData)
-            {
-                CustomIonCubesInit._log.LogDebug(serial.name);
-            }
-            var y = atlas.serialData.Find(data => data.name.ToLower().Equals("precursorioncrystal"));
-            CustomIonCubesInit._log.LogDebug($"Found serialdata '{y.name}' with {y.sprite}");
-            
-            var original = SpriteManager.Get(TechType.PrecursorIonCrystal);
-            foreach (var uv in original.uv0)
-            {
-                CustomIonCubesInit._log.LogDebug($"UV: {uv}");
-            }
-            foreach (var vtx in original.vertices)
-            {
-                CustomIonCubesInit._log.LogDebug($"Vertex: {vtx}");
-            }
-            // foreach (var x in Atlas.nameToAtlas.Keys)
-            // {
-            //     CustomIonCubesInit._log.LogDebug(x);
-            // }
-            
-            var x1 = RecolorSprite(SpriteManager.Get(TechType.PrecursorIonCrystal), newColor);
-            // x1.border = original.border;
-            // x1.size = original.size;
-            // x1.inner = original.inner;
-            // x1.outer = original.outer;
-            // x1.triangles = original.triangles;
-            // x1.uv0 = original.uv0;
-            // x1.vertices = original.vertices;
-            // x1.pixelsPerUnit = original.pixelsPerUnit;
-            // x1.uv0 = new[] { new Vector2(0f, 0f), new Vector2(1f, 1f) };
-            return x1;
         }
 
         /// <summary>
@@ -158,75 +137,15 @@ namespace CustomIonCubes
             LanguageHandler.SetTechTypeName(techType, name, language);
             LanguageHandler.SetTechTypeTooltip(techType, tooltip, language);
         }
-        
-        /// <summary>
-        /// Change the hue of all colors of a sprite. Saturation and vibrancy are retained.
-        /// </summary>
-        public static Sprite RecolorSprite(Atlas.Sprite sprite, Color newColor)
-        {
-            Texture2D texture = CloneTexture(sprite);
-            for (int x = 0; x < texture.width; x++)
-            {
-                for (int y = 0; y < texture.height; y++)
-                {
-                    Color oldColor = texture.GetPixel(x, y);
-                    var swapped = SwapColor(oldColor, newColor);
-                    texture.SetPixel(x, y, swapped);
-                }
-            }
-            texture.Apply();
-            return Sprite.Create(texture, new Rect(0f, 0f, 128f, 128f), new Vector2(0.5f, 0.5f));
-        }
-        
-        /// <summary>
-        /// Subnautica packages its textures as non-readable, which makes it almost impossible to modify. This method
-        /// produces an editable copy. Graciously provided by Nitrox.
-        /// </summary>
-        public static Texture2D CloneTexture(Atlas.Sprite sprite)
-        {
-            Texture2D sourceTexture = sprite.texture;
-            
-            // Create a temporary RenderTexture of the same size as the texture
-            RenderTexture tmp = RenderTexture.GetTemporary(
-                (int)sprite.size.x,
-                (int)sprite.size.y,
-                // sprite.texture.width,
-                // sprite.texture.height,
-                0,
-                RenderTextureFormat.Default,
-                RenderTextureReadWrite.Linear);
 
-            
-            // Blit the pixels on texture to the RenderTexture
-            var scale = sprite.uv0[1] - sprite.uv0[2];
-            Graphics.Blit(sourceTexture, tmp, scale, sprite.uv0[2]);
-            // Backup the currently set RenderTexture
-            RenderTexture previous = RenderTexture.active;
-            // Set the current RenderTexture to the temporary one we created
-            RenderTexture.active = tmp;
-            // Create a new readable Texture2D to copy the pixels to it
-            Texture2D clonedTexture = new Texture2D((int)sprite.size.x, (int)sprite.size.y);
-            // Copy the pixels from the RenderTexture to the new Texture
-            clonedTexture.ReadPixels(new Rect(0, 0, tmp.width, tmp.height), 0, 0);
-            clonedTexture.Apply();
-            // Reset the active RenderTexture
-            RenderTexture.active = previous;
-            // Release the temporary RenderTexture
-            RenderTexture.ReleaseTemporary(tmp);
-
-            return clonedTexture;
-            // "clonedTexture" now has the same pixels from "texture" and it's readable.
-        }
-
-        /// <summary>
-        /// Swaps in a new color while retaining the general "feel" of the old one by changing hue but retaining
-        /// saturation and vibrancy.
-        /// </summary>
-        public static Color SwapColor(Color oldColor, Color newColor)
+        private static void PrepareMaterial(TechType techType, Color iconColor)
         {
-            Color.RGBToHSV(oldColor, out _, out float s, out float v);
-            Color.RGBToHSV(newColor, out float replacementHue, out _, out _);
-            return Color.HSVToRGB(replacementHue, s, v).WithAlpha(oldColor.a);
+            var material = UnityEngine.Object.Instantiate(CustomIonCubesInit._hueshift);
+            Color.RGBToHSV(iconColor, out float h, out float s, out float v);
+            CustomIonCubesInit._log.LogDebug($"Setting icon hue as: {h}");
+            material.SetFloat("_Hue", h);
+            // material.color = iconColor;
+            Materials.Add(techType, material);
         }
     }
 }
