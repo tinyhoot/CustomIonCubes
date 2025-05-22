@@ -28,8 +28,10 @@ namespace CustomIonCubes
         {
             _log = Logger;
             _log.LogInfo($"{NAME} v{VERSION} ready.");
-            
-            AssetBundle bundle = AssetBundle.LoadFromFile(Path.Combine(new FileInfo(Assembly.GetExecutingAssembly().Location).Directory!.FullName, "hueshiftshader"));
+
+            AssetBundle bundle = AssetBundle.LoadFromFile(
+                Path.Combine(
+                    new FileInfo(Assembly.GetExecutingAssembly().Location).Directory!.FullName, "Assets", "hueshiftshader"));
             var shaderMaterial = bundle.LoadAsset<Material>("stencilhueshift");
             _hueshift = shaderMaterial;
             _log.LogDebug($"Shader: {shaderMaterial}");
@@ -47,7 +49,7 @@ namespace CustomIonCubes
         private IEnumerator Start()
         {
             // Run a coroutine to read and parse all custom cube colour files from disk.
-            ColorSerializer serializer = new ColorSerializer("colors");
+            ColorSerializer serializer = new ColorSerializer(Path.Combine("Assets", "Colors"));
             TaskResult<List<CubeColor>> result = new TaskResult<List<CubeColor>>();
             yield return serializer.LoadAllColors(result);
             foreach (var color in result.value)

@@ -3,5 +3,6 @@
 <!-- Define important extra files needed in the final distribution. -->
     <ItemGroup>
         <Assets Include="Assets\hueshiftshader" />
+        <Assets Include="Assets\Colors\*" />
     </ItemGroup>
 </Project>
